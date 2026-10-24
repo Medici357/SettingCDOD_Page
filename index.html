@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Understanding Object Detector Generalization Gaps through the lens of Setting Specificity</title>
+<meta name="description" content="Cross-dataset object detection through setting specificity: taxonomic specificity and contextual diversity are separable, and transfer from narrow to diverse settings collapses.">
+<meta name="author" content="Ritabrata Chakraborty, Hrishit Mitra, Palaiahnakote Shivakumara, Umapada Pal">
+<meta property="og:title" content="Understanding Object Detector Generalization Gaps through the lens of Setting Specificity">
+<meta property="og:description" content="Cross-dataset object detection through setting specificity.">
+<!-- TODO: set your deployed URL and add static/images/social_preview.png (1200x630) -->
+<meta property="og:image" content="https://YOUR_USERNAME.github.io/YOUR_REPO/static/images/social_preview.png">
+<meta name="citation_title" content="Understanding Object Detector Generalization Gaps through the lens of Setting Specificity">
+<meta name="citation_author" content="Chakraborty, Ritabrata">
+<meta name="citation_author" content="Mitra, Hrishit">
+<meta name="citation_author" content="Shivakumara, Palaiahnakote">
+<meta name="citation_author" content="Pal, Umapada">
+<meta name="citation_publication_date" content="2026">
+<meta name="citation_conference_title" content="17th Indian Conference on Computer Vision, Graphics and Image Processing (ICVGIP)">
+
+<!-- Optional Inter font. If it fails to load, the system font stack below is used. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #ffffff; --text: #1f2933; --muted: #5b6770; --line: #d7dde2;
+    --soft: #f4f6f8; --accent: #2563eb; --good: #15803d; --bad: #dc2626;
+    --font: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12161b; --text: #e6eaee; --muted: #9aa5af; --line: #2c343c;
+      --soft: #1a2027; --accent: #6ea0ff; --good: #4ade80; --bad: #f87171;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.65 var(--font); }
+  a { color: var(--accent); }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 1.25rem; }
+  section { padding: 2.5rem 0; }
+  section.alt { background: var(--soft); }
+  h1 { font-size: clamp(1.8rem, 4.5vw, 2.7rem); line-height: 1.2; margin: 0 0 1rem; }
+  h2 { font-size: 1.6rem; margin: 0 0 1rem; text-align: center; }
+  h3 { font-size: 1.05rem; margin: 1.5rem 0 .6rem; text-align: center; }
+  p { margin: 0 0 1rem; }
+  header { text-align: center; padding: 3rem 0 1.5rem; }
+  .authors, .venue { margin: .25rem 0; font-size: 1.1rem; }
+  .venue { color: var(--muted); font-size: 1rem; }
+  .links { margin-top: 1.25rem; display: flex; gap: .6rem; justify-content: center; flex-wrap: wrap; }
+  .btn { display: inline-block; padding: .5rem 1.1rem; border-radius: 999px; background: var(--text);
+         color: var(--bg); text-decoration: none; font-weight: 600; font-size: .95rem; }
+  figure { margin: 0; text-align: center; }
+  figure img { max-width: 100%; height: auto; }
+  figcaption { color: var(--muted); font-size: .92rem; margin-top: .6rem; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; }
+  .card { border: 1px solid var(--line); border-radius: 8px; padding: 1rem 1.1rem; }
+  .card h3 { text-align: left; margin: 0 0 .4rem; }
+  .card p { margin: 0; font-size: .96rem; }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; margin: 0 auto; font-size: .95rem; }
+  th, td { border-bottom: 1px solid var(--line); padding: .45rem .8rem; text-align: center; white-space: nowrap; }
+  th { border-bottom: 2px solid var(--line); }
+  th:first-child, td:first-child { text-align: left; }
+  .diag { font-weight: 700; }
+  .cliff { font-weight: 700; color: var(--bad); }
+  .gain { color: var(--good); font-size: .78em; margin-left: .3em; }
+  .note { color: var(--muted); font-size: .9rem; text-align: center; margin-top: .6rem; }
+  .gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.25rem; }
+  pre { background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 1rem;
+        overflow-x: auto; font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; margin: 0; }
+  button.copy { margin-bottom: .6rem; padding: .35rem .9rem; border: 1px solid var(--line); border-radius: 6px;
+        background: var(--bg); color: var(--text); font: inherit; font-size: .9rem; cursor: pointer; }
+  footer { padding: 2rem 0; color: var(--muted); font-size: .9rem; text-align: center; }
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>Understanding Object Detector Generalization Gaps through the lens of Setting Specificity</h1>
+    <p class="authors">Ritabrata Chakraborty<sup>1</sup>, Hrishit Mitra<sup>2</sup>, Palaiahnakote Shivakumara<sup>3</sup>, Umapada Pal<sup>4</sup></p>
+    <p class="venue"><sup>1</sup>University of Virginia, USA &nbsp;&middot;&nbsp; <sup>2</sup>Georgia Institute of Technology, USA &nbsp;&middot;&nbsp; <sup>3</sup>University of Salford, UK &nbsp;&middot;&nbsp; <sup>4</sup>Indian Statistical Institute, Kolkata, India</p>
+    <p class="venue">17th Indian Conference on Computer Vision, Graphics and Image Processing (ICVGIP 2026), December 2026, Kolkata, India</p>
+    <div class="links">
+      <a class="btn" href="static/pdfs/paper.pdf">Paper (PDF)</a>
+      <!-- TODO: add when public -->
+      <a class="btn" href="https://github.com/YOUR_USERNAME/YOUR_REPO">Code</a>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <figure>
+      <img src="static/images/fig1_teaser.png" alt="One COCO image run through detectors trained on COCO, Cityscapes, Objects365 and BDD100k">
+      <figcaption>The same COCO image, run through detectors trained on (a) COCO, (b) Cityscapes, (c) Objects365 and (d) BDD100k. Only the COCO-trained detector is in-domain.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="wrap">
+    <h2>Abstract</h2>
+    <p>
+      Object detectors often perform well in-distribution, yet degrade sharply on a different benchmark. We study
+      cross-dataset object detection (CD-OD) through a lens of setting specificity. We quantify it along two independent
+      axes: taxonomic specificity, measured via CLIP-based semantic spread of the label vocabulary, and contextual
+      diversity, measured via a DINOv2 effective-rank and scene-category entropy, validated across six datasets. We group
+      benchmarks into setting-agnostic datasets with diverse everyday scenes and setting-specific datasets tied to a narrow
+      environment, and evaluate a standard detector family across all train&ndash;test pairs. Transfer is strongly
+      directional, with broad-to-narrow transfer often outperforming the reverse regardless of setting type, and the most severe breakdowns predominantly occur when transferring from specific sources to agnostic targets. These
+      persist after open-label alignment, so substantial non-taxonomic visual and capture shift remains in the hardest
+      regimes. Repeating the Cityscapes&harr;COCO transfer with RT-DETR and YOLOv11-L shows the cliff is not an artifact of
+      a single architecture.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Key findings</h2>
+    <div class="cards">
+      <div class="card"><h3>Specificity has two axes</h3>
+        <p>What a dataset labels and how it was captured vary independently. xView and VisDrone reach driving-like contextual diversity from opposite ends of the taxonomic axis.</p></div>
+      <div class="card"><h3>Transfer is directional</h3>
+        <p>A Cityscapes-trained detector scores 0.402 mAP in-domain but 0.015 on COCO. Narrow-to-diverse transfer is the failure regime.</p></div>
+      <div class="card"><h3>Labels explain only part of it</h3>
+        <p>Open-label scoring recovers up to +0.036 mAP, yet Cityscapes&rarr;COCO only reaches 0.030. The same asymmetry appears across three detector families.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="wrap">
+    <h2>A two-axis specificity space</h2>
+    <p>
+      Taxonomic specificity (TS) is one minus the normalized mean pairwise CLIP distance between class-name embeddings, so
+      higher means a narrower vocabulary. Contextual diversity (CDS) combines the Vendi Score of DINOv2 image embeddings
+      with Places365 scene-category entropy, so higher means more varied scenes.
+    </p>
+    <figure>
+      <img src="static/images/fig2_specificity_space.png" style="max-width:600px" alt="Scatter plot of taxonomic specificity versus contextual diversity for six datasets">
+      <figcaption>COCO and Objects365 occupy one corner, Cityscapes and BDD100k the opposite one. xView and VisDrone (*) sit between them and are not in the transfer grid.</figcaption>
+    </figure>
+    <br>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Dataset</th><th>TS &uarr;</th><th>CDS &uarr;</th></tr></thead>
+        <tbody>
+          <tr><td>Cityscapes</td><td>1.000</td><td>0.115 &plusmn; 0.011</td></tr>
+          <tr><td>BDD100k</td><td>0.748</td><td>0.144 &plusmn; 0.021</td></tr>
+          <tr><td>VisDrone*</td><td>0.458</td><td>0.219 &plusmn; 0.009</td></tr>
+          <tr><td>COCO</td><td>0.278</td><td>1.000 &plusmn; 0.005</td></tr>
+          <tr><td>xView*</td><td>0.067</td><td>0.239 &plusmn; 0.014</td></tr>
+          <tr><td>Objects365</td><td>0.000</td><td>0.962 &plusmn; 0.015</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Min&ndash;max normalized. CDS is mean &plusmn; bootstrap std over 5 sampling seeds (400 images per dataset).</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Cross-dataset transfer grid</h2>
+    <p>
+      Faster R-CNN (ResNet-50 FPN) is trained on each source and evaluated frozen on every target, with no target images,
+      annotations or parameter updates. Values are mAP@0.50&ndash;0.95. Rows are the test set, columns the train set. Under
+      open-label scoring, each predicted class maps to the nearest target label by CLIP text similarity (&tau; = 0.6),
+      leaving boxes untouched.
+    </p>
+
+    <h3>Closed-label</h3>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Test \ Train</th><th>COCO</th><th>Cityscapes</th><th>Objects365</th><th>BDD</th><th>Avg.</th></tr></thead>
+        <tbody>
+          <tr><td>COCO</td><td class="diag">0.376</td><td class="cliff">0.015</td><td>0.286</td><td>0.019</td><td>0.174</td></tr>
+          <tr><td>Cityscapes</td><td>0.206</td><td class="diag">0.402</td><td>0.268</td><td>0.275</td><td>0.287</td></tr>
+          <tr><td>Objects365</td><td>0.046</td><td>0.020</td><td class="diag">0.198</td><td>0.102</td><td>0.092</td></tr>
+          <tr><td>BDD</td><td>0.131</td><td>0.025</td><td>0.103</td><td class="diag">0.298</td><td>0.139</td></tr>
+          <tr><td>Avg.</td><td>0.189</td><td>0.115</td><td>0.213</td><td>0.174</td><td>&ndash;</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Open-label (gain over closed-label)</h3>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Test \ Train</th><th>COCO</th><th>Cityscapes</th><th>Objects365</th><th>BDD</th><th>Avg.</th></tr></thead>
+        <tbody>
+          <tr><td>COCO</td><td class="diag">0.376</td><td class="cliff">0.030<span class="gain">+0.015</span></td><td>0.322<span class="gain">+0.036</span></td><td>0.038<span class="gain">+0.019</span></td><td>0.192</td></tr>
+          <tr><td>Cityscapes</td><td>0.235<span class="gain">+0.029</span></td><td class="diag">0.402</td><td>0.296<span class="gain">+0.028</span></td><td>0.287<span class="gain">+0.012</span></td><td>0.305</td></tr>
+          <tr><td>Objects365</td><td>0.082<span class="gain">+0.036</span></td><td>0.032<span class="gain">+0.012</span></td><td class="diag">0.198</td><td>0.124<span class="gain">+0.022</span></td><td>0.109</td></tr>
+          <tr><td>BDD</td><td>0.160<span class="gain">+0.029</span></td><td>0.040<span class="gain">+0.015</span></td><td>0.132<span class="gain">+0.029</span></td><td class="diag">0.298</td><td>0.158</td></tr>
+          <tr><td>Avg.</td><td>0.213</td><td>0.126</td><td>0.237</td><td>0.187</td><td>&ndash;</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Bold diagonal = in-domain. Red = Cityscapes&rarr;COCO, the specific&rarr;agnostic cliff. Label mismatch accounts for a bounded share of the gap.</p>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="wrap">
+    <h2>The cliff holds across architectures</h2>
+    <p>
+      Starting from COCO-pretrained checkpoints, we evaluate on COCO and Cityscapes, fine-tune on Cityscapes, and evaluate
+      again on both, restricted to the 7 classes the datasets share. Retention is the cross-dataset score divided by the
+      model's own in-domain score. City&rarr;COCO retention is lower than COCO&rarr;City for every detector, and the
+      strongest in-domain detectors do not retain more.
+    </p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Model</th><th>COCO&rarr;COCO</th><th>COCO&rarr;City</th><th>City&rarr;City</th><th>City&rarr;COCO</th><th>COCO&rarr;City retention</th><th>City&rarr;COCO retention</th></tr></thead>
+        <tbody>
+          <tr><td>Faster R-CNN</td><td>0.376</td><td>0.206</td><td>0.259</td><td>0.106</td><td>54.8%</td><td>40.9%</td></tr>
+          <tr><td>RT-DETR</td><td>0.561</td><td>0.266</td><td>0.401</td><td>0.142</td><td>47.4%</td><td>35.4%</td></tr>
+          <tr><td>YOLOv11-L</td><td>0.542</td><td>0.249</td><td>0.334</td><td>0.090</td><td>45.9%</td><td>26.9%</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Qualitative results</h2>
+    <!-- Export Figure 3 panels as static/images/qual1.jpg ... qual4.jpg -->
+    <div class="gallery">
+      <figure><img src="static/images/qual1.jpg" alt="Objects365 to Cityscapes" loading="lazy"><figcaption>Objects365&rarr;Cityscapes: major objects and pedestrians are localized accurately.</figcaption></figure>
+      <figure><img src="static/images/qual2.jpg" alt="Objects365 to COCO" loading="lazy"><figcaption>Objects365&rarr;COCO: high IoU, but with excessive hallucinated detections.</figcaption></figure>
+      <figure><img src="static/images/qual3.jpg" alt="Cityscapes to COCO" loading="lazy"><figcaption>Cityscapes&rarr;COCO: background clutter and overlapping objects lead to incorrect predictions.</figcaption></figure>
+      <figure><img src="static/images/qual4.jpg" alt="Cityscapes to BDD100k at night" loading="lazy"><figcaption>Cityscapes&rarr;BDD100k: performance degrades in nighttime scenes.</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="bibtex">
+  <div class="wrap">
+    <h2>BibTeX</h2>
+    <button class="copy" type="button" onclick="navigator.clipboard.writeText(document.getElementById('bib').innerText); this.textContent='Copied'">Copy</button>
+    <!-- TODO: add pages and DOI once the proceedings entry is out -->
+    <pre id="bib">@inproceedings{chakraborty2026setting,
+  title={Understanding Object Detector Generalization Gaps through the lens of Setting Specificity},
+  author={Chakraborty, Ritabrata and Mitra, Hrishit and Shivakumara, Palaiahnakote and Pal, Umapada},
+  booktitle={Proceedings of the 17th Indian Conference on Computer Vision, Graphics and Image Processing (ICVGIP '26)},
+  year={2026},
+  month={December},
+  address={Kolkata, India}
+}</pre>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">ICVGIP 2026 &middot; Kolkata, India</div>
+</footer>
+
+</body>
+</html>
